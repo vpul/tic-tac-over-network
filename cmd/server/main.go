@@ -1,11 +1,10 @@
 package main
 
 import (
-	"bufio"
 	"flag"
 	"fmt"
-	"log"
 	"net"
+	"os"
 )
 
 func main() {
@@ -14,34 +13,20 @@ func main() {
 
 	ln, err := net.Listen("tcp", *addr)
 	if err != nil {
-		log.Fatalf("listen: %v", err)
+		fmt.Fprintf(os.Stderr, "listen: %v\n", err)
+		os.Exit(1)
 	}
 	defer ln.Close()
-	log.Printf("server listening on %s", ln.Addr())
+	fmt.Printf("server listening on %s\n", ln.Addr())
+
+	go matchmaker()
 
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
-			log.Printf("accept: %v", err)
+			fmt.Printf("accept: %v\n", err)
 			continue
 		}
 		go handleConn(conn)
-	}
-}
-
-func handleConn(conn net.Conn) {
-	defer conn.Close()
-	remote := conn.RemoteAddr()
-	log.Printf("client connected: %s", remote)
-	defer log.Printf("client disconnected: %s", remote)
-
-	scanner := bufio.NewScanner(conn)
-	for scanner.Scan() {
-		msg := scanner.Text()
-		log.Printf("message from %s: %q", remote, msg)
-		fmt.Fprintf(conn, "ack: %s\n", msg)
-	}
-	if err := scanner.Err(); err != nil {
-		log.Printf("read error from %s: %v", remote, err)
 	}
 }

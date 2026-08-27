@@ -3,31 +3,59 @@ package main
 import (
 	"bufio"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
-	"log"
+	"io"
 	"net"
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 )
 
-// message mirrors internal/proto's eventual wire format (newline-delimited JSON).
-type message struct {
-	Type string `json:"type"`
-	Cell int    `json:"cell,omitempty"`
+// symbol is written by readServer (on game_start) and read by the input
+// loop on every move.
+var (
+	symbolMu sync.Mutex
+	symbol   = "?" // until the server assigns one at pairing
+)
+
+func currentSymbol() string {
+	symbolMu.Lock()
+	defer symbolMu.Unlock()
+	return symbol
 }
 
-func render(board [9]string) {
-	fmt.Println()
-	for r := 0; r < 3; r++ {
-		i := r * 3
-		fmt.Printf(" %s | %s | %s \n", board[i], board[i+1], board[i+2])
-		if r < 2 {
-			fmt.Println("---+---+---")
+func setSymbol(s string) {
+	symbolMu.Lock()
+	defer symbolMu.Unlock()
+	symbol = s
+}
+
+// readServer parses server messages until the conn closes.
+func readServer(conn net.Conn) {
+	dec := json.NewDecoder(conn)
+	for {
+		var m message
+		if err := dec.Decode(&m); err != nil {
+			if errors.Is(err, io.EOF) {
+				fmt.Println("connection closed by server")
+			} else {
+				fmt.Fprintf(os.Stderr, "read error: %v\n", err)
+			}
+			os.Exit(0)
+		}
+		switch m.Type {
+		case "waiting":
+			fmt.Println("waiting for an opponent...")
+		case "game_start":
+			setSymbol(m.Symbol)
+			fmt.Printf("paired! you are %s\n", m.Symbol)
+		default:
+			fmt.Printf("[server] %+v\n", m)
 		}
 	}
-	fmt.Println("\nplay a cell (1-9) or q to quit:")
 }
 
 func main() {
@@ -36,25 +64,19 @@ func main() {
 
 	conn, err := net.Dial("tcp", *addr)
 	if err != nil {
-		log.Fatalf("dial: %v", err)
+		fmt.Fprintf(os.Stderr, "dial: %v\n", err)
+		os.Exit(1)
 	}
 	defer conn.Close()
 
 	out := json.NewEncoder(conn)
 	if err := out.Encode(message{Type: "hello"}); err != nil {
-		log.Fatalf("send hello: %v", err)
+		fmt.Fprintf(os.Stderr, "send hello: %v\n", err)
+		os.Exit(1)
 	}
-	log.Printf("connected to %s", *addr)
+	fmt.Printf("connected to %s\n", *addr)
 
-	// server -> screen: print everything until the server closes the conn.
-	go func() {
-		scanner := bufio.NewScanner(conn)
-		for scanner.Scan() {
-			fmt.Printf("[server] %s\n", scanner.Text())
-		}
-		log.Println("connection closed by server")
-		os.Exit(0)
-	}()
+	go readServer(conn)
 
 	// Local preview only. The server owns the real board once it validates;
 	// this display is a mirror, never an authority.
@@ -75,15 +97,21 @@ func main() {
 				fmt.Println("? enter a cell 1-9, or q to quit")
 				continue
 			}
+			sym := currentSymbol()
+			if sym == "?" {
+				fmt.Println("not paired yet — wait for an opponent")
+				continue
+			}
 			mark := strconv.Itoa(n)
 			if board[n-1] != mark {
 				fmt.Printf("(local preview) cell %d already marked %s — not sent\n", n, board[n-1])
 				continue
 			}
-			board[n-1] = "X"
+			board[n-1] = sym
 			render(board)
 			if err := out.Encode(message{Type: "move", Cell: n}); err != nil {
-				log.Fatalf("send move: %v", err)
+				fmt.Fprintf(os.Stderr, "send move: %v\n", err)
+				os.Exit(1)
 			}
 		}
 	}
