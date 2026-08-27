@@ -50,7 +50,11 @@ func handleConn(conn net.Conn) {
 		case m := <-connectedClient.messages:
 			switch m.Type {
 			case "move":
-				fmt.Printf("move from %s: cell %d\n", remote, m.Cell)
+				if err := connectedClient.game.play(assignedSymbol, m.Cell); err != nil {
+					fmt.Fprintf(conn, `{"type":"error","reason":%q}`+"\n", err.Error())
+					continue
+				}
+				fmt.Printf("move from %s: %s played cell %d\n", remote, assignedSymbol, m.Cell)
 			default:
 				fmt.Fprintf(conn, `{"type":"error","reason":"unknown message type"}`+"\n")
 				fmt.Printf("ignored message from %s: unknown type %q\n", remote, m.Type)

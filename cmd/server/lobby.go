@@ -11,6 +11,7 @@ type client struct {
 	symbol       chan string   // matchmaker sends "X" or "O" once paired
 	messages     chan message  // reader sends client messages here
 	disconnected chan struct{} // closed when the connection dies
+	game         *game         // shared game state for the matched pair
 }
 
 // waitingClients is the lobby queue. Its capacity of 1 lets the first client
@@ -29,6 +30,9 @@ func matchmaker() {
 			continue // waiting client left; find a new waiting client
 		}
 
+		matchedGame := newGame()
+		waitingClient.game = matchedGame
+		opponent.game = matchedGame
 		fmt.Fprintln(waitingClient.conn, `{"type":"game_start","symbol":"X"}`)
 		fmt.Fprintln(opponent.conn, `{"type":"game_start","symbol":"O"}`)
 		waitingClient.symbol <- "X"
