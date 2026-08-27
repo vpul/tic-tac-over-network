@@ -34,6 +34,12 @@ func (g *game) play(symbol string, cell int) error {
 	return nil
 }
 
+func (g *game) snapshot() (board [9]string, turn string) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	return g.board, g.turn
+}
+
 // validateMove checks every rule that must be true before a move is applied.
 // The caller must hold g.mu.
 func (g *game) validateMove(symbol string, cell int) error {

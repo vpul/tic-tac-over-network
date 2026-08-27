@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"net"
 )
@@ -11,7 +12,13 @@ type client struct {
 	symbol       chan string   // matchmaker sends "X" or "O" once paired
 	messages     chan message  // reader sends client messages here
 	disconnected chan struct{} // closed when the connection dies
-	game         *game         // shared game state for the matched pair
+	session      *session      // shared session for the matched pair
+}
+
+// session groups the shared game and the two clients in one match.
+type session struct {
+	game    *game
+	clients [2]*client
 }
 
 // waitingClients is the lobby queue. Its capacity of 1 lets the first client
@@ -30,14 +37,23 @@ func matchmaker() {
 			continue // waiting client left; find a new waiting client
 		}
 
-		matchedGame := newGame()
-		waitingClient.game = matchedGame
-		opponent.game = matchedGame
+		matchedSession := &session{
+			game:    newGame(),
+			clients: [2]*client{waitingClient, opponent},
+		}
+		waitingClient.session = matchedSession
+		opponent.session = matchedSession
 		fmt.Fprintln(waitingClient.conn, `{"type":"game_start","symbol":"X"}`)
 		fmt.Fprintln(opponent.conn, `{"type":"game_start","symbol":"O"}`)
 		waitingClient.symbol <- "X"
 		opponent.symbol <- "O"
 		fmt.Printf("paired %s (X) vs %s (O)\n", waitingClient.conn.RemoteAddr(), opponent.conn.RemoteAddr())
+	}
+}
+
+func (s *session) broadcast(m message) {
+	for _, client := range s.clients {
+		json.NewEncoder(client.conn).Encode(m)
 	}
 }
 

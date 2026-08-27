@@ -52,6 +52,15 @@ func readServer(conn net.Conn) {
 		case "game_start":
 			setSymbol(m.Symbol)
 			fmt.Printf("paired! you are %s\n", m.Symbol)
+		case "state":
+			board := m.Board
+			for i := range board {
+				if board[i] == "" {
+					board[i] = strconv.Itoa(i + 1)
+				}
+			}
+			render(board)
+			fmt.Printf("next turn: %s\n", m.Turn)
 		default:
 			fmt.Printf("[server] %+v\n", m)
 		}
