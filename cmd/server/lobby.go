@@ -9,6 +9,7 @@ import (
 type client struct {
 	conn         net.Conn
 	symbol       chan string   // matchmaker sends "X" or "O" once paired
+	messages     chan message  // reader sends client messages here
 	disconnected chan struct{} // closed when the connection dies
 }
 

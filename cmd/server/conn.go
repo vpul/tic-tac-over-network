@@ -20,6 +20,7 @@ func handleConn(conn net.Conn) {
 	connectedClient := &client{
 		conn:         conn,
 		symbol:       make(chan string, 1),
+		messages:     make(chan message),
 		disconnected: make(chan struct{}),
 	}
 
@@ -36,7 +37,7 @@ func handleConn(conn net.Conn) {
 				}
 				return
 			}
-			fmt.Printf("message from %s: %+v\n", remote, m)
+			connectedClient.messages <- m
 		}
 	}()
 
@@ -44,5 +45,18 @@ func handleConn(conn net.Conn) {
 	assignedSymbol := <-connectedClient.symbol
 	fmt.Printf("%s assigned %s\n", remote, assignedSymbol)
 
-	<-connectedClient.disconnected // keep the connection open until it disconnects
+	for {
+		select {
+		case m := <-connectedClient.messages:
+			switch m.Type {
+			case "move":
+				fmt.Printf("move from %s: cell %d\n", remote, m.Cell)
+			default:
+				fmt.Fprintf(conn, `{"type":"error","reason":"unknown message type"}`+"\n")
+				fmt.Printf("ignored message from %s: unknown type %q\n", remote, m.Type)
+			}
+		case <-connectedClient.disconnected:
+			return
+		}
+	}
 }
