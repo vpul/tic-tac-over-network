@@ -1,6 +1,9 @@
 package client
 
-import "fmt"
+import (
+	"fmt"
+	"strconv"
+)
 
 func (c *Client) renderBoard() {
 	c.stateMu.Lock()
@@ -14,7 +17,13 @@ func (c *Client) renderBoardLocked() {
 	fmt.Fprintln(c.output)
 	for r := 0; r < 3; r++ {
 		i := r * 3
-		fmt.Fprintf(c.output, " %s | %s | %s \n", c.board[i], c.board[i+1], c.board[i+2])
+		cells := [3]string{c.board[i], c.board[i+1], c.board[i+2]}
+		for j := range cells {
+			if cells[j] == "" {
+				cells[j] = strconv.Itoa(i + j + 1)
+			}
+		}
+		fmt.Fprintf(c.output, " %s | %s | %s \n", cells[0], cells[1], cells[2])
 		if r < 2 {
 			fmt.Fprintln(c.output, "---+---+---")
 		}

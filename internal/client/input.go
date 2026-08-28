@@ -24,7 +24,8 @@ func (c *Client) processInput() error {
 				c.println("? enter a cell 1-9, or q to quit")
 				continue
 			}
-			if !c.previewMove(cell) {
+			if !c.isPaired() {
+				c.println("not paired yet — wait for an opponent")
 				continue
 			}
 			if err := encoder.Encode(protocol.Request{Type: "move", Cell: cell}); err != nil {
@@ -35,24 +36,10 @@ func (c *Client) processInput() error {
 	return c.input.Err()
 }
 
-func (c *Client) previewMove(cell int) bool {
+func (c *Client) isPaired() bool {
 	c.stateMu.Lock()
 	defer c.stateMu.Unlock()
-	if c.symbol == "" {
-		c.println("not paired yet — wait for an opponent")
-		return false
-	}
-	if c.turn != c.symbol {
-		c.printf("not your turn — waiting for %s\n", c.turn)
-		return false
-	}
-	if c.board[cell-1] != strconv.Itoa(cell) {
-		c.printf("(local preview) cell %d already marked %s — not sent\n", cell, c.board[cell-1])
-		return false
-	}
-	c.board[cell-1] = c.symbol
-	c.renderBoardLocked()
-	return true
+	return c.symbol != ""
 }
 
 func (c *Client) println(value string) {

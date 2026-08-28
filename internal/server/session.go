@@ -22,10 +22,16 @@ func newSession(first, second *client) *session {
 
 // start assigns game roles and makes the session available to both clients.
 func (s *session) start() {
+	board, turn := s.game.Snapshot()
 	for i, symbol := range []string{"X", "O"} {
 		client := s.clients[i]
 		client.session = s
-		client.send(protocol.Response{Type: "game_start", Symbol: symbol})
+		client.send(protocol.Response{
+			Type:   "game_start",
+			Symbol: symbol,
+			Board:  board,
+			Turn:   turn,
+		})
 		close(client.sessionReady)
 		fmt.Printf("%s assigned %s\n", client.remote(), symbol)
 	}

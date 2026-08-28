@@ -3,7 +3,6 @@ package client
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 
 	"tic-tac-over-network/internal/protocol"
@@ -35,13 +34,16 @@ func (c *Client) handleResponse(response protocol.Response) bool {
 		c.stateMu.Lock()
 		c.symbol = response.Symbol
 		c.stateMu.Unlock()
+		c.updateState(response.Board)
+		c.renderBoard()
 		c.printf("paired! you are %s\n", response.Symbol)
+		c.printf("next turn: %s\n", response.Turn)
 	case "state":
-		c.updateState(response.Board, response.Turn)
+		c.updateState(response.Board)
 		c.renderBoard()
 		c.printf("next turn: %s\n", response.Turn)
 	case "game_over":
-		c.updateState(response.Board, response.Turn)
+		c.updateState(response.Board)
 		c.renderBoard()
 		c.printResult(response.Result)
 		return true
@@ -53,18 +55,11 @@ func (c *Client) handleResponse(response protocol.Response) bool {
 	return false
 }
 
-func (c *Client) updateState(board [9]string, turn string) {
+func (c *Client) updateState(board [9]string) {
 	c.stateMu.Lock()
 	defer c.stateMu.Unlock()
-	for i := range board {
-		if board[i] == "" {
-			board[i] = fmt.Sprint(i + 1)
-		}
-	}
 	c.board = board
-	c.turn = turn
 }
-
 func (c *Client) printResult(result string) {
 	c.stateMu.Lock()
 	symbol := c.symbol

@@ -16,7 +16,6 @@ type Client struct {
 	stateMu  sync.Mutex
 	outputMu sync.Mutex
 	symbol   string
-	turn     string
 	board    [9]string
 }
 
@@ -25,8 +24,6 @@ func New(conn net.Conn, input io.Reader, output io.Writer) *Client {
 		conn:   conn,
 		input:  bufio.NewScanner(input),
 		output: output,
-		turn:   "X",
-		board:  [9]string{"1", "2", "3", "4", "5", "6", "7", "8", "9"},
 	}
 }
 
