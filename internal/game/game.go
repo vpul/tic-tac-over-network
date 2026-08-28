@@ -1,26 +1,26 @@
-package main
+package game
 
 import (
 	"fmt"
 	"sync"
 )
 
-type board [9]string
+type Board [9]string
 
-type game struct {
-	board    board
+type Game struct {
+	board    Board
 	turn     string
 	finished bool
 	mu       sync.Mutex
 }
 
-func newGame() *game {
-	return &game{turn: "X"}
+func New() *Game {
+	return &Game{turn: "X"}
 }
 
 const (
-	ongoing = "ongoing"
-	draw    = "draw"
+	Ongoing = "ongoing"
+	Draw    = "draw"
 )
 
 var winningLines = [8][3]int{
@@ -29,10 +29,10 @@ var winningLines = [8][3]int{
 	{0, 4, 8}, {2, 4, 6},
 }
 
-// play validates and records one move. The mutex protects the shared game
-// because both client handlers can submit moves concurrently.
-// play validates and records one move, returning the resulting game status.
-func (g *game) play(symbol string, cell int) (string, error) {
+// Play validates and records one move, returning the resulting game status.
+// The mutex protects the shared game because both client handlers can submit
+// moves concurrently.
+func (g *Game) Play(symbol string, cell int) (string, error) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 
@@ -42,7 +42,7 @@ func (g *game) play(symbol string, cell int) (string, error) {
 
 	g.board[cell-1] = symbol
 	status := checkOutcome(g.board)
-	if status != ongoing {
+	if status != Ongoing {
 		g.finished = true
 		return status, nil
 	}
@@ -51,29 +51,26 @@ func (g *game) play(symbol string, cell int) (string, error) {
 	} else {
 		g.turn = "X"
 	}
-	return ongoing, nil
+	return Ongoing, nil
 }
 
-func checkOutcome(board board) string {
+func checkOutcome(board Board) string {
 	for _, line := range winningLines {
-		symbol := board[line[0]] // get the symbol in the first cell of the line
-
-		// if symbol non empty, and the other two cells in the line match, we have a winner
+		symbol := board[line[0]]
 		if symbol != "" && symbol == board[line[1]] && symbol == board[line[2]] {
 			return symbol
 		}
 	}
 
-	// check if any cell is empty; if so, the game is still ongoing
 	for _, cell := range board {
 		if cell == "" {
-			return ongoing
+			return Ongoing
 		}
 	}
-	return draw
+	return Draw
 }
 
-func (g *game) snapshot() (board, string) {
+func (g *Game) Snapshot() (Board, string) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	return g.board, g.turn
@@ -81,7 +78,7 @@ func (g *game) snapshot() (board, string) {
 
 // validateMove checks every rule that must be true before a move is applied.
 // The caller must hold g.mu.
-func (g *game) validateMove(symbol string, cell int) error {
+func (g *Game) validateMove(symbol string, cell int) error {
 	if g.finished {
 		return fmt.Errorf("game is over")
 	}

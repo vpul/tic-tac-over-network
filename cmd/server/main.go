@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"net"
 	"os"
+
+	serverpkg "tic-tac-over-network/internal/server"
 )
 
 func main() {
@@ -17,16 +19,8 @@ func main() {
 		os.Exit(1)
 	}
 	defer ln.Close()
-	fmt.Printf("server listening on %s\n", ln.Addr())
-
-	go matchmaker()
-
-	for {
-		conn, err := ln.Accept()
-		if err != nil {
-			fmt.Printf("accept: %v\n", err)
-			continue
-		}
-		go handleConn(conn)
+	if err := serverpkg.New().Serve(ln); err != nil {
+		fmt.Fprintf(os.Stderr, "serve: %v\n", err)
+		os.Exit(1)
 	}
 }
