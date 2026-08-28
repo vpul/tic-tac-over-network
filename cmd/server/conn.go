@@ -50,17 +50,21 @@ func handleConn(conn net.Conn) {
 		case m := <-connectedClient.messages:
 			switch m.Type {
 			case "move":
-				if err := connectedClient.session.game.play(assignedSymbol, m.Cell); err != nil {
-					fmt.Fprintf(conn, `{"type":"error","reason":%q}`+"\n", err.Error())
+				status, err := connectedClient.session.game.play(assignedSymbol, m.Cell)
+				if err != nil {
+					json.NewEncoder(conn).Encode(message{Type: "error", Reason: err.Error()})
 					continue
 				}
 				board, turn := connectedClient.session.game.snapshot()
-				state := message{Type: "state", Board: board, Turn: turn}
-				connectedClient.session.broadcast(state)
+				if status != ongoing {
+					connectedClient.session.broadcast(message{
+						Type: "game_over", Board: board, Turn: turn, Result: status,
+					})
+					fmt.Printf("game over: %s\n", status)
+					continue
+				}
+				connectedClient.session.broadcast(message{Type: "state", Board: board, Turn: turn})
 				fmt.Printf("move from %s: %s played cell %d\n", remote, assignedSymbol, m.Cell)
-			case "hello":
-				// The initial hello may be queued before the client is paired.
-				continue
 			default:
 				fmt.Fprintf(conn, `{"type":"error","reason":"unknown message type"}`+"\n")
 				fmt.Printf("ignored message from %s: unknown type %q\n", remote, m.Type)

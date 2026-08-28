@@ -61,6 +61,24 @@ func readServer(conn net.Conn) {
 			}
 			render(board)
 			fmt.Printf("next turn: %s\n", m.Turn)
+		case "game_over":
+			board := m.Board
+			for i := range board {
+				if board[i] == "" {
+					board[i] = strconv.Itoa(i + 1)
+				}
+			}
+			render(board)
+			if m.Result == "draw" {
+				fmt.Println("game over: draw")
+			} else if m.Result == currentSymbol() {
+				fmt.Println("game over: you win")
+			} else {
+				fmt.Printf("game over: %s wins\n", m.Result)
+			}
+			return
+		case "error":
+			fmt.Printf("move rejected: %s\n", m.Reason)
 		default:
 			fmt.Printf("[server] %+v\n", m)
 		}
@@ -79,10 +97,6 @@ func main() {
 	defer conn.Close()
 
 	out := json.NewEncoder(conn)
-	if err := out.Encode(message{Type: "hello"}); err != nil {
-		fmt.Fprintf(os.Stderr, "send hello: %v\n", err)
-		os.Exit(1)
-	}
 	fmt.Printf("connected to %s\n", *addr)
 
 	go readServer(conn)

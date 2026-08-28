@@ -8,4 +8,6 @@ type message struct {
 	Symbol string    `json:"symbol,omitempty"`
 	Board  [9]string `json:"board,omitempty"`
 	Turn   string    `json:"turn,omitempty"`
+	Result string    `json:"result,omitempty"`
+	Reason string    `json:"reason,omitempty"`
 }
