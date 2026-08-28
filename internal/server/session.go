@@ -2,6 +2,7 @@ package server
 
 import (
 	"fmt"
+	"sync"
 
 	"tic-tac-over-network/internal/game"
 	"tic-tac-over-network/internal/protocol"
@@ -9,8 +10,10 @@ import (
 
 // session owns one matched game's workflow and participants.
 type session struct {
+	mu      sync.Mutex
 	game    *game.Game
 	clients [2]*client
+	closed  bool
 }
 
 func newSession(first, second *client) *session {
@@ -32,8 +35,10 @@ func (s *session) start() {
 			Board:  board,
 			Turn:   turn,
 		})
-		close(client.sessionReady)
 		fmt.Printf("%s assigned %s\n", client.remote(), symbol)
+	}
+	for _, client := range s.clients {
+		close(client.sessionReady)
 	}
 }
 
@@ -54,7 +59,15 @@ func (s *session) broadcast(message protocol.Response) {
 	}
 }
 
+// handle serializes validation, state mutation, and broadcasts for this game.
 func (s *session) handle(client *client, p payload) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.closed {
+		client.send(protocol.Response{Type: "error", Reason: "game is over"})
+		return
+	}
 	symbol, ok := s.symbolFor(client)
 	if !ok {
 		client.send(protocol.Response{Type: "error", Reason: "client is not part of this session"})
@@ -81,5 +94,19 @@ func (s *session) handle(client *client, p payload) {
 	default:
 		client.send(protocol.Response{Type: "error", Reason: "unknown message type"})
 		fmt.Printf("ignored message from %s: unknown type %q\n", client.remote(), p.message.Type)
+	}
+}
+
+func (s *session) disconnect(client *client) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.closed {
+		return
+	}
+	s.closed = true
+	for _, opponent := range s.clients {
+		if opponent != client {
+			opponent.send(protocol.Response{Type: "opponent_left"})
+		}
 	}
 }

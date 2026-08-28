@@ -47,6 +47,9 @@ func (c *Client) handleResponse(response protocol.Response) bool {
 		c.renderBoard()
 		c.printResult(response.Result)
 		return true
+	case "opponent_left":
+		c.println("opponent left the game")
+		return true
 	case "error":
 		c.printf("move rejected: %s\n", response.Reason)
 	default:

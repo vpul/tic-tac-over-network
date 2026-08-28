@@ -10,6 +10,9 @@ import (
 func (s *Server) runLobby() {
 	for {
 		waitingClient := <-s.waitingClients
+		if waitingClient.isDisconnected() {
+			continue
+		}
 		waitingClient.send(protocol.Response{Type: "waiting"})
 
 		opponent, ok := s.waitForOpponent(waitingClient)
@@ -24,11 +27,16 @@ func (s *Server) runLobby() {
 }
 
 func (s *Server) waitForOpponent(waitingClient *client) (*client, bool) {
-	select {
-	case opponent := <-s.waitingClients:
-		return opponent, true
-	case <-waitingClient.disconnected:
-		fmt.Printf("%s left the lobby\n", waitingClient.remote())
-		return nil, false
+	for {
+		select {
+		case opponent := <-s.waitingClients:
+			if opponent.isDisconnected() {
+				continue
+			}
+			return opponent, true
+		case <-waitingClient.disconnected:
+			fmt.Printf("%s left the lobby\n", waitingClient.remote())
+			return nil, false
+		}
 	}
 }

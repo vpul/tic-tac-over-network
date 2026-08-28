@@ -27,9 +27,24 @@ func New(conn net.Conn, input io.Reader, output io.Writer) *Client {
 	}
 }
 
-// Run starts the server reader and processes terminal commands until exit.
+// Run coordinates terminal input with server-driven termination.
 func (c *Client) Run() error {
-	go c.readServer()
+	serverDone := make(chan struct{})
+	go func() {
+		c.readServer()
+		close(serverDone)
+	}()
+
 	c.renderBoard()
-	return c.processInput()
+	inputDone := make(chan error, 1)
+	go func() {
+		inputDone <- c.processInput()
+	}()
+
+	select {
+	case err := <-inputDone:
+		return err
+	case <-serverDone:
+		return nil
+	}
 }

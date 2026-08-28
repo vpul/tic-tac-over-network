@@ -51,6 +51,7 @@ func (s *Server) handleConn(conn net.Conn) {
 	if activeSession == nil {
 		return
 	}
+	defer activeSession.disconnect(connectedClient)
 
 	connectedClient.processMessages(activeSession)
 }
@@ -95,6 +96,15 @@ func (c *client) send(message protocol.Response) {
 	defer c.writeMu.Unlock()
 	if err := json.NewEncoder(c.conn).Encode(message); err != nil {
 		fmt.Printf("write error to %s: %v\n", c.remote(), err)
+	}
+}
+
+func (c *client) isDisconnected() bool {
+	select {
+	case <-c.disconnected:
+		return true
+	default:
+		return false
 	}
 }
 
