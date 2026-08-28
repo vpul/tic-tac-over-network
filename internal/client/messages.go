@@ -37,11 +37,11 @@ func (c *Client) handleResponse(response protocol.Response) bool {
 		c.updateState(response.Board)
 		c.renderBoard()
 		c.printf("paired! you are %s\n", response.Symbol)
-		c.printf("next turn: %s\n", response.Turn)
+		c.printf("current turn: %s\n", response.Turn)
 	case "state":
 		c.updateState(response.Board)
 		c.renderBoard()
-		c.printf("next turn: %s\n", response.Turn)
+		c.printf("current turn: %s\n", response.Turn)
 	case "game_over":
 		c.updateState(response.Board)
 		c.renderBoard()
