@@ -11,15 +11,10 @@ import (
 	"tic-tac-over-network/internal/protocol"
 )
 
-// payload carries a decoded client request to the active session.
-type payload struct {
-	message protocol.Request
-}
-
 // client owns connection state. Session-specific values are assigned by the session.
 type client struct {
 	conn         net.Conn
-	payloads     chan payload
+	requests     chan protocol.Request
 	disconnected chan struct{}
 	sessionReady chan struct{}
 	session      *session
@@ -29,13 +24,13 @@ type client struct {
 func newClient(conn net.Conn) *client {
 	return &client{
 		conn:         conn,
-		payloads:     make(chan payload),
+		requests:     make(chan protocol.Request),
 		disconnected: make(chan struct{}),
 		sessionReady: make(chan struct{}),
 	}
 }
 
-// handleConn owns the connection lifetime and forwards complete payloads to
+// handleConn owns the connection lifetime and forwards complete requests to
 // the matched session.
 func (s *Server) handleConn(conn net.Conn) {
 	connectedClient := newClient(conn)
@@ -44,7 +39,7 @@ func (s *Server) handleConn(conn net.Conn) {
 	fmt.Printf("client connected: %s\n", connectedClient.remote())
 	defer fmt.Printf("client disconnected: %s\n", connectedClient.remote())
 
-	go connectedClient.readPayloads()
+	go connectedClient.readRequests()
 	s.waitingClients <- connectedClient
 
 	activeSession := connectedClient.waitForSession()
@@ -68,26 +63,26 @@ func (c *client) waitForSession() *session {
 func (c *client) processMessages(activeSession *session) {
 	for {
 		select {
-		case incoming := <-c.payloads:
-			activeSession.handle(c, incoming)
+		case request := <-c.requests:
+			activeSession.handle(c, request)
 		case <-c.disconnected:
 			return
 		}
 	}
 }
 
-func (c *client) readPayloads() {
+func (c *client) readRequests() {
 	defer close(c.disconnected)
 	decoder := json.NewDecoder(c.conn)
 	for {
-		var message protocol.Request
-		if err := decoder.Decode(&message); err != nil {
+		var request protocol.Request
+		if err := decoder.Decode(&request); err != nil {
 			if !errors.Is(err, io.EOF) {
 				fmt.Printf("read error from %s: %v\n", c.remote(), err)
 			}
 			return
 		}
-		c.payloads <- payload{message: message}
+		c.requests <- request
 	}
 }
 

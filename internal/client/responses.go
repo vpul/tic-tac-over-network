@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 
+	"tic-tac-over-network/internal/game"
 	"tic-tac-over-network/internal/protocol"
 )
 
@@ -34,16 +35,14 @@ func (c *Client) handleResponse(response protocol.Response) bool {
 		c.stateMu.Lock()
 		c.symbol = response.Symbol
 		c.stateMu.Unlock()
-		c.updateState(response.Board)
-		c.renderBoard()
+		c.updateState(response.Board, response.Turn)
 		c.printf("paired! you are %s\n", response.Symbol)
-		c.printf("current turn: %s\n", response.Turn)
-	case "state":
-		c.updateState(response.Board)
 		c.renderBoard()
-		c.printf("current turn: %s\n", response.Turn)
+	case "state":
+		c.updateState(response.Board, response.Turn)
+		c.renderBoard()
 	case "game_over":
-		c.updateState(response.Board)
+		c.updateState(response.Board, response.Turn)
 		c.renderBoard()
 		c.printResult(response.Result)
 		return true
@@ -58,10 +57,11 @@ func (c *Client) handleResponse(response protocol.Response) bool {
 	return false
 }
 
-func (c *Client) updateState(board [9]string) {
+func (c *Client) updateState(board game.Board, turn string) {
 	c.stateMu.Lock()
 	defer c.stateMu.Unlock()
 	c.board = board
+	c.turn = turn
 }
 func (c *Client) printResult(result string) {
 	c.stateMu.Lock()

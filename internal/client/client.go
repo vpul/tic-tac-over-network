@@ -5,6 +5,8 @@ import (
 	"io"
 	"net"
 	"sync"
+
+	"tic-tac-over-network/internal/game"
 )
 
 // Client coordinates the network reader and terminal input for one player.
@@ -16,7 +18,8 @@ type Client struct {
 	stateMu  sync.Mutex
 	outputMu sync.Mutex
 	symbol   string
-	board    [9]string
+	turn     string
+	board    game.Board
 }
 
 func New(conn net.Conn, input io.Reader, output io.Writer) *Client {

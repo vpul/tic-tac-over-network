@@ -60,7 +60,7 @@ func (s *session) broadcast(message protocol.Response) {
 }
 
 // handle serializes validation, state mutation, and broadcasts for this game.
-func (s *session) handle(client *client, p payload) {
+func (s *session) handle(client *client, request protocol.Request) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -74,9 +74,9 @@ func (s *session) handle(client *client, p payload) {
 		return
 	}
 
-	switch p.message.Type {
+	switch request.Type {
 	case "move":
-		status, err := s.game.Play(symbol, p.message.Cell)
+		status, err := s.game.Play(symbol, request.Cell)
 		if err != nil {
 			client.send(protocol.Response{Type: "error", Reason: err.Error()})
 			return
@@ -90,10 +90,10 @@ func (s *session) handle(client *client, p payload) {
 		}
 
 		s.broadcast(protocol.Response{Type: "state", Board: board, Turn: turn})
-		fmt.Printf("move from %s: %s played cell %d\n", client.remote(), symbol, p.message.Cell)
+		fmt.Printf("move from %s: %s played cell %d\n", client.remote(), symbol, request.Cell)
 	default:
 		client.send(protocol.Response{Type: "error", Reason: "unknown message type"})
-		fmt.Printf("ignored message from %s: unknown type %q\n", client.remote(), p.message.Type)
+		fmt.Printf("ignored message from %s: unknown type %q\n", client.remote(), request.Type)
 	}
 }
 
